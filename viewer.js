@@ -1753,7 +1753,9 @@ function renderOptimizationResults() {
   ['stat', 'aptitude', 'unique', 'standard', 'highvalue', 'scenario'].forEach(key => {
     const input = document.getElementById(`score-${key}`);
     if (input) {
-      input.addEventListener('click', e => e.stopPropagation());
+      ['click', 'mousedown', 'pointerdown'].forEach(evt => {
+        input.addEventListener(evt, e => e.stopPropagation());
+      });
       input.addEventListener('change', () => {
         const val = parseInt(input.value) || 0;
         const storeKey = key === 'highvalue' ? 'highValue' : key;
@@ -1776,7 +1778,11 @@ function renderOptimizationResults() {
   
   // High-value skills add - stop propagation to prevent details from closing
   const hvInput = document.getElementById('hv-skill-input');
-  hvInput?.addEventListener('click', e => e.stopPropagation());
+  if (hvInput) {
+    ['click', 'mousedown', 'pointerdown'].forEach(evt => {
+      hvInput.addEventListener(evt, e => e.stopPropagation());
+    });
+  }
   
   const hvAddBtn = document.getElementById('hv-add-btn');
   hvAddBtn?.addEventListener('click', (e) => {
