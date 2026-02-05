@@ -19,6 +19,12 @@ import subprocess
 import sys
 from pathlib import Path
 
+# Fix Unicode output on Windows consoles
+if sys.stdout:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr:
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # Get the directory where this script lives (uma-viewer repo)
 SCRIPT_DIR = Path(__file__).parent.resolve()
 

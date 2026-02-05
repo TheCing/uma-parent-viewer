@@ -25,6 +25,12 @@ from pathlib import Path
 
 import requests
 
+# Fix Unicode output on Windows consoles
+if sys.stdout:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr:
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 # uma-tools data URLs
 # Global version (official English names)
 SKILLNAMES_GLOBAL_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/umalator-global/skillnames.json"

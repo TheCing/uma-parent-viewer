@@ -25,6 +25,12 @@ import webbrowser
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+# Fix Unicode output on Windows consoles
+if sys.stdout:
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if sys.stderr:
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+
 PORT = 8080
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
