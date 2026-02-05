@@ -18,7 +18,37 @@ let viewMode = localStorage.getItem('uma_viewMode') || 'ace';
 let optimizationResults = null;
 let transferThreshold = parseInt(localStorage.getItem('uma_transfer_threshold')) || 15;
 let protectionRules = JSON.parse(localStorage.getItem('uma_protection_rules')) || [];
+let protectionLogic = localStorage.getItem('uma_protection_logic') || 'or'; // 'or' or 'and'
 let showOnlyProtected = false;
+
+// Editable scoring values (points per star or flat points)
+const DEFAULT_SCORE_VALUES = {
+  stat: 2,        // Blue (stats): pts per ★
+  aptitude: 4,    // Pink (aptitudes): pts per ★
+  unique: 1,      // Green (unique): pts per ★
+  scenario: 7,    // Scenario sparks: flat pts
+  highValue: 5,   // High-value skills: flat pts
+  standard: 1     // Standard skills: flat pts
+};
+let scoreValues = JSON.parse(localStorage.getItem('uma_score_values')) || { ...DEFAULT_SCORE_VALUES };
+
+// Editable high-value skills list
+const DEFAULT_HIGH_VALUE_SKILLS = [
+  'Groundwork', "Playtime's Over!", 'Tail Held High', 'Early Lead', 'Fast-Paced',
+  'Uma Stan', 'Straightaway Spurt', 'Slipstream', 'Head-On', 'Nimble Navigator', 'Ramp Up'
+];
+let highValueSkills = JSON.parse(localStorage.getItem('uma_high_value_skills')) || [...DEFAULT_HIGH_VALUE_SKILLS];
+
+// Editable scenario sparks list
+const DEFAULT_SCENARIO_SPARKS = ['URA Finale', 'Unity Cup'];
+let scenarioSparks = JSON.parse(localStorage.getItem('uma_scenario_sparks')) || [...DEFAULT_SCENARIO_SPARKS];
+
+function saveOptimizationSettings() {
+  localStorage.setItem('uma_score_values', JSON.stringify(scoreValues));
+  localStorage.setItem('uma_high_value_skills', JSON.stringify(highValueSkills));
+  localStorage.setItem('uma_scenario_sparks', JSON.stringify(scenarioSparks));
+  localStorage.setItem('uma_protection_logic', protectionLogic);
+}
 
 // All known spark names for the filter dropdown
 const SPARK_NAMES_FOR_FILTER = [
@@ -1373,27 +1403,6 @@ function renderJson(char) {
 // ACCOUNT OPTIMIZATION
 // ============================================
 
-// High-value skill sparks (5 pts each)
-const HIGH_VALUE_SKILLS = [
-  'Groundwork',
-  "Playtime's Over!",
-  'Tail Held High',
-  'Early Lead',
-  'Fast-Paced',
-  'Uma Stan',
-  'Straightaway Spurt',
-  'Slipstream',
-  'Head-On',
-  'Nimble Navigator',
-  'Ramp Up'
-];
-
-// Scenario sparks (7 pts each)
-const SCENARIO_SPARKS = [
-  'URA Finale',
-  'Unity Cup'
-];
-
 function calculateSparkScore(char) {
   const sparks = char.spark_array_enriched || [];
   let totalScore = 0;
@@ -1404,40 +1413,40 @@ function calculateSparkScore(char) {
     const stars = s.stars || 0;
     const name = s.spark_name_en || '';
     
-    // Blue (stats): 2 pts per ★
+    // Blue (stats): pts per ★
     if (id >= 100 && id < 600) {
-      const pts = stars * 2;
+      const pts = stars * scoreValues.stat;
       totalScore += pts;
       breakdown.stat += pts;
     }
-    // Pink (aptitudes - ground + distance + style): 4 pts per ★
+    // Pink (aptitudes - ground + distance + style): pts per ★
     else if ((id >= 1100 && id < 1300) || (id >= 2100 && id < 2500) || (id >= 3100 && id < 3500)) {
-      const pts = stars * 4;
+      const pts = stars * scoreValues.aptitude;
       totalScore += pts;
       breakdown.aptitude += pts;
     }
-    // Green (unique): 1 pt per ★
+    // Green (unique): pts per ★
     else if (id >= 10000000 && id < 20000000) {
-      const pts = stars * 1;
+      const pts = stars * scoreValues.unique;
       totalScore += pts;
       breakdown.unique += pts;
     }
     // White (skills) - check for special cases
     else {
-      // Scenario sparks: 7 pts
-      if (SCENARIO_SPARKS.includes(name)) {
-        totalScore += 7;
-        breakdown.scenario += 7;
+      // Scenario sparks
+      if (scenarioSparks.includes(name)) {
+        totalScore += scoreValues.scenario;
+        breakdown.scenario += scoreValues.scenario;
       }
-      // High-value skills: 5 pts
-      else if (HIGH_VALUE_SKILLS.includes(name)) {
-        totalScore += 5;
-        breakdown.highValue += 5;
+      // High-value skills
+      else if (highValueSkills.includes(name)) {
+        totalScore += scoreValues.highValue;
+        breakdown.highValue += scoreValues.highValue;
       }
-      // Standard skills: 1 pt
+      // Standard skills
       else {
-        totalScore += 1;
-        breakdown.skill += 1;
+        totalScore += scoreValues.standard;
+        breakdown.skill += scoreValues.standard;
       }
     }
   });
@@ -1470,7 +1479,8 @@ function isProtectedByRules(char) {
     }
   }
   
-  for (const rule of protectionRules) {
+  // Check each rule
+  const ruleResults = protectionRules.map(rule => {
     let totalStars = 0;
     const searchName = rule.sparkName.toLowerCase();
     
@@ -1492,16 +1502,39 @@ function isProtectedByRules(char) {
       }
     }
     
-    if (totalStars >= rule.minStars) {
-      return true;
-    }
-  }
+    return totalStars >= rule.minStars;
+  });
   
-  return false;
+  // Apply AND/OR logic
+  if (protectionLogic === 'and') {
+    return ruleResults.every(r => r); // ALL rules must match
+  } else {
+    return ruleResults.some(r => r);  // ANY rule matches
+  }
 }
 
 function saveProtectionRules() {
   localStorage.setItem('uma_protection_rules', JSON.stringify(protectionRules));
+}
+
+function recalculateProtection() {
+  if (!optimizationResults) return;
+  optimizationResults.forEach(r => {
+    r.isProtected = isProtectedByRules(data[r.index]);
+    const belowThreshold = r.score < transferThreshold;
+    r.toTransfer = belowThreshold && !r.isProtected;
+  });
+}
+
+function recalculateScores() {
+  if (!optimizationResults) return;
+  optimizationResults.forEach(r => {
+    const score = calculateSparkScore(data[r.index]);
+    r.score = score.total;
+    r.breakdown = score.breakdown;
+    const belowThreshold = r.score < transferThreshold;
+    r.toTransfer = belowThreshold && !r.isProtected;
+  });
 }
 
 function runOptimization() {
@@ -1584,7 +1617,12 @@ function renderOptimizationResults() {
     <div class="optimize-protection">
       <div class="protection-header">
         <span class="protection-title">// protection rules</span>
-        ${protectedCount > 0 ? `<button class="protection-count ${showOnlyProtected ? 'active' : ''}" id="toggle-protected">${protectedCount} protected ${showOnlyProtected ? '(showing)' : ''}</button>` : ''}
+        <div class="protection-header-right">
+          <span class="logic-label">Logic:</span>
+          <button class="logic-toggle ${protectionLogic === 'or' ? 'active' : ''}" id="logic-or">OR</button>
+          <button class="logic-toggle ${protectionLogic === 'and' ? 'active' : ''}" id="logic-and">AND</button>
+          ${protectedCount > 0 ? `<button class="protection-count ${showOnlyProtected ? 'active' : ''}" id="toggle-protected">${protectedCount} protected</button>` : ''}
+        </div>
       </div>
       <div class="protection-rules" id="protection-rules">
         ${protectionRules.map((rule, i) => `
@@ -1610,6 +1648,53 @@ function renderOptimizationResults() {
         <button class="rule-add-btn" id="rule-add-btn">+ add</button>
       </div>
     </div>
+    
+    <details class="optimize-settings">
+      <summary>// scoring settings</summary>
+      <div class="settings-content">
+        <div class="settings-row">
+          <label>Stat (blue) per ★:</label>
+          <input type="number" id="score-stat" value="${scoreValues.stat}" min="0" max="20">
+        </div>
+        <div class="settings-row">
+          <label>Aptitude (pink) per ★:</label>
+          <input type="number" id="score-aptitude" value="${scoreValues.aptitude}" min="0" max="20">
+        </div>
+        <div class="settings-row">
+          <label>Unique (green) per ★:</label>
+          <input type="number" id="score-unique" value="${scoreValues.unique}" min="0" max="20">
+        </div>
+        <div class="settings-row">
+          <label>Standard skill (white):</label>
+          <input type="number" id="score-standard" value="${scoreValues.standard}" min="0" max="20">
+        </div>
+        <div class="settings-row">
+          <label>High-value skill:</label>
+          <input type="number" id="score-highvalue" value="${scoreValues.highValue}" min="0" max="20">
+        </div>
+        <div class="settings-row">
+          <label>Scenario spark:</label>
+          <input type="number" id="score-scenario" value="${scoreValues.scenario}" min="0" max="20">
+        </div>
+        <button class="settings-reset" id="reset-scores">Reset to defaults</button>
+      </div>
+    </details>
+    
+    <details class="optimize-settings">
+      <summary>// high-value skills (${highValueSkills.length})</summary>
+      <div class="settings-content">
+        <div class="hv-skills-list" id="hv-skills-list">
+          ${highValueSkills.map((skill, i) => `
+            <span class="hv-skill">${skill}<button class="hv-remove" data-hv-index="${i}">&times;</button></span>
+          `).join('')}
+        </div>
+        <div class="hv-add">
+          <input type="text" id="hv-skill-input" placeholder="Add skill name...">
+          <button class="hv-add-btn" id="hv-add-btn">+ add</button>
+        </div>
+        <button class="settings-reset" id="reset-hv-skills">Reset to defaults</button>
+      </div>
+    </details>
     
     ${toTransfer.length > 0 ? `
       <div class="optimize-section">
@@ -1643,6 +1728,77 @@ function renderOptimizationResults() {
   // Toggle protected view
   document.getElementById('toggle-protected')?.addEventListener('click', () => {
     showOnlyProtected = !showOnlyProtected;
+    renderOptimizationResults();
+  });
+  
+  // AND/OR logic toggle
+  document.getElementById('logic-or')?.addEventListener('click', () => {
+    if (protectionLogic !== 'or') {
+      protectionLogic = 'or';
+      saveOptimizationSettings();
+      recalculateProtection();
+      renderOptimizationResults();
+    }
+  });
+  document.getElementById('logic-and')?.addEventListener('click', () => {
+    if (protectionLogic !== 'and') {
+      protectionLogic = 'and';
+      saveOptimizationSettings();
+      recalculateProtection();
+      renderOptimizationResults();
+    }
+  });
+  
+  // Score value inputs
+  ['stat', 'aptitude', 'unique', 'standard', 'highvalue', 'scenario'].forEach(key => {
+    const input = document.getElementById(`score-${key}`);
+    input?.addEventListener('change', () => {
+      const val = parseInt(input.value) || 0;
+      const storeKey = key === 'highvalue' ? 'highValue' : key;
+      scoreValues[storeKey] = val;
+      saveOptimizationSettings();
+      recalculateScores();
+      renderOptimizationResults();
+    });
+  });
+  
+  // Reset scores
+  document.getElementById('reset-scores')?.addEventListener('click', () => {
+    scoreValues = { ...DEFAULT_SCORE_VALUES };
+    saveOptimizationSettings();
+    recalculateScores();
+    renderOptimizationResults();
+  });
+  
+  // High-value skills add
+  document.getElementById('hv-add-btn')?.addEventListener('click', () => {
+    const input = document.getElementById('hv-skill-input');
+    const skillName = input?.value.trim();
+    if (skillName && !highValueSkills.includes(skillName)) {
+      highValueSkills.push(skillName);
+      saveOptimizationSettings();
+      recalculateScores();
+      renderOptimizationResults();
+    }
+  });
+  
+  // High-value skills remove
+  container.querySelectorAll('.hv-remove').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.hvIndex);
+      highValueSkills.splice(idx, 1);
+      saveOptimizationSettings();
+      recalculateScores();
+      renderOptimizationResults();
+    });
+  });
+  
+  // Reset high-value skills
+  document.getElementById('reset-hv-skills')?.addEventListener('click', () => {
+    highValueSkills = [...DEFAULT_HIGH_VALUE_SKILLS];
+    saveOptimizationSettings();
+    recalculateScores();
     renderOptimizationResults();
   });
   
