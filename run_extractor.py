@@ -117,6 +117,8 @@ def run_extractor(extractor_path: Path, auto_confirm: bool = False) -> bool:
                 cwd=str(SCRIPT_DIR),
                 capture_output=False,  # Let output stream to console
                 text=True,
+                encoding='utf-8',
+                errors='replace',
             )
             
             # Check if data.json was created
@@ -153,6 +155,8 @@ def run_extractor(extractor_path: Path, auto_confirm: bool = False) -> bool:
                 cwd=str(SCRIPT_DIR),
                 capture_output=False,
                 text=True,
+                encoding='utf-8',
+                errors='replace',
             )
             
             data_json = SCRIPT_DIR / "data.json"
