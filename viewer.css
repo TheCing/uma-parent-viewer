@@ -277,11 +277,11 @@ code, .mono {
   color: var(--green);
 }
 
-.character-item .parent-score {
-  font-weight: 600;
-  color: var(--accent);
-  margin-right: 8px;
-  font-size: 11px;
+.character-item .parent-rank {
+  font-weight: 700;
+  color: var(--yellow);
+  margin-right: 10px;
+  font-size: 12px;
 }
 
 .character-item .spark-preview {
@@ -2120,6 +2120,15 @@ code, .mono {
   font-size: 13px;
   font-weight: 500;
   color: var(--text);
+}
+
+.optimize-rank {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--yellow);
+  margin-left: auto;
+  margin-right: 12px;
 }
 
 .optimize-score {

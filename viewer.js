@@ -812,8 +812,8 @@ function renderList(chars) {
   list.innerHTML = chars.map((c, i) => {
     let metaContent;
     if (isParentMode) {
-      const sparkScore = calculateSparkScore(c);
-      metaContent = `<span class="parent-score">${sparkScore.total} pts</span><span class="spark-preview">${getSparkSummary(c)}</span>`;
+      const rankScore = c.rank_score ? c.rank_score.toLocaleString() : '0';
+      metaContent = `<span class="parent-rank">${rankScore}</span><span class="spark-preview">${getSparkSummary(c)}</span>`;
     } else {
       metaContent = `<span class="list-score">${formatScore(c.rank_score)}</span> • ${c.wins || 0} wins`;
     }
@@ -1556,6 +1556,7 @@ function runOptimization() {
       name: char.chara_name_en || 'Unknown',
       outfit: char.costume_name_en || '',
       createTime: char.create_time || '',
+      rankScore: char.rank_score || 0,
       sparkCount: (char.spark_array_enriched || []).length,
       score: score.total,
       breakdown: score.breakdown,
@@ -1609,6 +1610,8 @@ function renderOptimizationResults() {
   const sortFn = (a, b) => {
     if (optimizerSortBy === 'score') {
       return optimizerSortAsc ? a.score - b.score : b.score - a.score;
+    } else if (optimizerSortBy === 'rank') {
+      return optimizerSortAsc ? a.rankScore - b.rankScore : b.rankScore - a.rankScore;
     } else {
       // Sort by date
       if (!a.createTime && !b.createTime) return 0;
@@ -1728,7 +1731,8 @@ function renderOptimizationResults() {
     <div class="optimize-sort-controls">
       <span class="optimize-sort-label">Sort by:</span>
       <button class="optimize-sort-btn ${optimizerSortBy === 'date' ? 'active' : ''}" id="sort-by-date">Date</button>
-      <button class="optimize-sort-btn ${optimizerSortBy === 'score' ? 'active' : ''}" id="sort-by-score">Score</button>
+      <button class="optimize-sort-btn ${optimizerSortBy === 'rank' ? 'active' : ''}" id="sort-by-rank">Rating</button>
+      <button class="optimize-sort-btn ${optimizerSortBy === 'score' ? 'active' : ''}" id="sort-by-score">Spark Pts</button>
       <button class="optimize-sort-dir" id="sort-dir-btn" title="Toggle sort direction">
         ${optimizerSortAsc ? '↑ Asc' : '↓ Desc'}
       </button>
@@ -1766,6 +1770,11 @@ function renderOptimizationResults() {
   // Sort controls
   document.getElementById('sort-by-date')?.addEventListener('click', () => {
     optimizerSortBy = 'date';
+    localStorage.setItem('uma_optimizer_sort', optimizerSortBy);
+    renderOptimizationResults();
+  });
+  document.getElementById('sort-by-rank')?.addEventListener('click', () => {
+    optimizerSortBy = 'rank';
     localStorage.setItem('uma_optimizer_sort', optimizerSortBy);
     renderOptimizationResults();
   });
@@ -1916,11 +1925,13 @@ function renderOptimizeRow(result, isTransfer) {
   if (b.skill > 0) breakdownParts.push(`<span class="spark-skill">Skl ${b.skill}</span>`);
   
   const showProtectedBadge = result.isProtected && result.score < transferThreshold;
+  const formattedRankScore = result.rankScore ? result.rankScore.toLocaleString() : '0';
   
   return `
     <div class="optimize-row ${isTransfer ? 'transfer' : ''} ${showProtectedBadge ? 'protected' : ''}" data-index="${result.index}">
       <div class="optimize-row-main">
         <span class="optimize-name">${result.name}</span>
+        <span class="optimize-rank">${formattedRankScore}</span>
         ${showProtectedBadge ? '<span class="protected-badge">protected</span>' : ''}
         <span class="optimize-score ${isTransfer ? 'low' : ''}">${result.score} pts</span>
       </div>
