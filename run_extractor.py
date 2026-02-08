@@ -25,7 +25,7 @@ if sys.stdout:
 if sys.stderr:
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# Get the directory where this script lives (uma-viewer repo)
+# Get the directory where this script lives (uma-parent-viewer repo)
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
@@ -42,7 +42,7 @@ def find_umaextractor() -> Path | None:
     # Common installation locations
     home = Path.home()
     search_paths.extend([
-        # Sibling directory (same parent folder as uma-viewer)
+        # Sibling directory (same parent folder as uma-parent-viewer)
         SCRIPT_DIR.parent / "UmaExtractor",
         # User's Downloads folder (most common for average users)
         home / "Downloads" / "UmaExtractor",
@@ -189,7 +189,7 @@ def run_extractor(extractor_path: Path, auto_confirm: bool = False) -> bool:
 
 
 def main():
-    print("=== Uma Viewer - Data Extractor Launcher ===\n")
+    print("=== Uma Parent Viewer - Data Extractor Launcher ===\n")
     
     # Parse arguments
     auto_confirm = "--yes" in sys.argv or "-y" in sys.argv

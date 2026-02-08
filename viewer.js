@@ -344,7 +344,7 @@ function render() {
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo-row">
-          <div class="logo">uma_viewer</div>
+          <div class="logo">uma_parent_viewer</div>
           <div class="mode-toggle">
             <span class="mode-toggle-label ${viewMode === 'ace' ? 'active' : ''}" id="mode-ace">Ace</span>
             <div class="mode-switch ${viewMode === 'parent' ? 'parent' : ''}" id="mode-switch" title="Toggle view mode"></div>

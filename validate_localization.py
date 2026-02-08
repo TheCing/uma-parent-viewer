@@ -369,7 +369,7 @@ def print_terminology_reference():
 
 
 def main():
-    print("=== Uma Viewer Localization Validator ===\n")
+    print("=== Uma Parent Viewer Localization Validator ===\n")
     
     fix_mode = "--fix" in sys.argv
     

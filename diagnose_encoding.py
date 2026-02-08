@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Encoding Diagnostic Tool for Uma Viewer
+Encoding Diagnostic Tool for Uma Parent Viewer
 Run this script to diagnose Unicode/encoding issues on Windows.
 """
 
@@ -10,7 +10,7 @@ import locale
 
 def main():
     print("=" * 60)
-    print("  UMA VIEWER - ENCODING DIAGNOSTIC")
+    print("  UMA PARENT VIEWER - ENCODING DIAGNOSTIC")
     print("=" * 60)
     print()
     
@@ -114,7 +114,7 @@ def main():
         issues_found = True
         print("  ! Your user path contains non-ASCII characters.")
         print("    This is usually fine, but some tools may have issues.")
-        print("    The Uma Viewer has been updated to handle this.")
+        print("    The Uma Parent Viewer has been updated to handle this.")
     
     if os.environ.get('PYTHONIOENCODING') is None:
         issues_found = True

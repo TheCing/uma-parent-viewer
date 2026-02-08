@@ -1,5 +1,5 @@
 @echo off
-title Uma Viewer Launcher
+title Uma Parent Viewer Launcher
 cd /d "%~dp0"
 
 :: Force UTF-8 console encoding for non-ASCII path support
@@ -9,7 +9,7 @@ set PYTHONUTF8=1
 
 echo.
 echo  =============================================
-echo   Uma Viewer Launcher
+echo   Uma Parent Viewer Launcher
 echo  =============================================
 echo.
 

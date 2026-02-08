@@ -1,4 +1,4 @@
-# Uma Viewer
+# Uma Parent Viewer
 
 A data enrichment and visualization tool for Uma Musume Pretty Derby trained character data.
 
@@ -19,7 +19,7 @@ English names are fetched from community translation projects:
 
 ## Quick Start (Easy Mode)
 
-**Double-click `Start Uma Viewer.bat`** to open the launcher control panel.
+**Double-click `Start Uma Parent Viewer.bat`** to open the launcher control panel.
 
 The launcher provides a simple web interface with buttons for each step:
 1. **Extract** - Pull data from the running game

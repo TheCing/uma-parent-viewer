@@ -3,7 +3,7 @@
 # dependencies = []
 # ///
 """
-Uma Viewer Launcher - Web-based control panel for easy operation.
+Uma Parent Viewer Launcher - Web-based control panel for easy operation.
 
 Double-click launcher.bat to start, or run directly:
     python launcher.py
@@ -44,7 +44,7 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Uma Viewer Launcher</title>
+  <title>Uma Parent Viewer Launcher</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -333,7 +333,7 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
 </head>
 <body>
   <div class="container">
-    <h1>uma_viewer</h1>
+    <h1>uma_parent_viewer</h1>
     <p class="subtitle">Extract, enrich, and view your Uma Musume veteran data</p>
 
     <div class="steps">
@@ -654,7 +654,7 @@ class LauncherHandler(http.server.SimpleHTTPRequestHandler):
 
 def main():
     print("=" * 50)
-    print("  Uma Viewer Launcher")
+    print("  Uma Parent Viewer Launcher")
     print("=" * 50)
     print()
     
