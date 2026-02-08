@@ -2,6 +2,11 @@
 title Uma Viewer Launcher
 cd /d "%~dp0"
 
+:: Force UTF-8 console encoding for non-ASCII path support
+chcp 65001 >nul 2>&1
+set PYTHONIOENCODING=utf-8:replace
+set PYTHONUTF8=1
+
 echo.
 echo  =============================================
 echo   Uma Viewer Launcher
