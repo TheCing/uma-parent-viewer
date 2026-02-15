@@ -4,6 +4,9 @@ A data enrichment and visualization tool for Uma Musume Pretty Derby trained cha
 
 Works with data exported from [UmaExtractor](https://github.com/xancia/UmaExtractor).
 
+> **Windows PC only** — This tool requires the desktop (DMM/Steam) version of Uma Musume.
+> It does not work on phones or tablets because UmaExtractor needs to read data directly from the game running on your PC.
+
 ## Features
 
 - **Data Enrichment**: Adds English names to characters, skills, sparks, support cards, race wins, and epithets
