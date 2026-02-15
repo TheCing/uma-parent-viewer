@@ -179,6 +179,45 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
       text-decoration: underline;
     }
 
+    .extractor-status {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 0;
+      color: var(--text-muted);
+    }
+
+    .extractor-status.found {
+      color: var(--green);
+    }
+
+    .extractor-status.not-found {
+      color: var(--orange);
+    }
+
+    .extractor-links {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .locate-btn {
+      font-size: 12px;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .locate-btn:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
     .step-action button {
       background: var(--accent);
       color: #fff;
@@ -342,7 +381,11 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
         <div class="step-info">
           <h3>Extract Data</h3>
           <p>Pull veteran data from the running game</p>
-          <a href="https://github.com/xancia/UmaExtractor/releases" target="_blank">Don't have UmaExtractor? Download it here →</a>
+          <div class="extractor-status" id="extractor-status">Checking for UmaExtractor...</div>
+          <div class="extractor-links">
+            <a href="https://github.com/xancia/UmaExtractor/releases" target="_blank">Download UmaExtractor →</a>
+            <button class="locate-btn" onclick="locateExtractor()">Locate UmaExtractor.exe</button>
+          </div>
         </div>
         <div class="step-action">
           <button onclick="runStep('extract')">Extract</button>
@@ -394,7 +437,7 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
         <li>Uma Musume Pretty Derby must be running</li>
         <li>Navigate to the Veteran List page (Enhance → List)</li>
         <li>Wait for the page to fully load</li>
-        <li>UmaExtractor must be installed (in Downloads or nearby folder)</li>
+        <li>UmaExtractor must be found (use "Locate" button above if not detected)</li>
       </ul>
     </div>
   </div>
@@ -532,8 +575,43 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
       }
     }
 
-    // Check files on load
+    async function checkExtractor() {
+      try {
+        const response = await fetch('/api/check_extractor');
+        const data = await response.json();
+        const status = document.getElementById('extractor-status');
+        if (data.found) {
+          status.className = 'extractor-status found';
+          status.textContent = '\\u2713 ' + data.path;
+        } else {
+          status.className = 'extractor-status not-found';
+          status.textContent = '\\u2717 UmaExtractor not found - use Locate or Download below';
+        }
+      } catch (err) {
+        // Ignore
+      }
+    }
+
+    async function locateExtractor() {
+      try {
+        const response = await fetch('/api/locate_extractor', { method: 'POST' });
+        const data = await response.json();
+        if (data.found) {
+          checkExtractor();
+          log('UmaExtractor located: ' + data.path, 'success');
+        } else if (data.cancelled) {
+          // User cancelled, do nothing
+        } else {
+          log('Selected file is not UmaExtractor.exe', 'error');
+        }
+      } catch (err) {
+        log('Failed to open file picker: ' + err.message, 'error');
+      }
+    }
+
+    // Check files and extractor on load
     checkFiles();
+    checkExtractor();
   </script>
 </body>
 </html>
@@ -570,6 +648,40 @@ class LauncherHandler(http.server.SimpleHTTPRequestHandler):
                 'enriched_exists': enriched_exists
             })
         
+        elif parsed.path == '/api/check_extractor':
+            # Check if UmaExtractor is findable
+            cached_path_file = SCRIPT_DIR / '.umaextractor_path'
+            found_path = None
+            
+            if cached_path_file.exists():
+                try:
+                    saved = cached_path_file.read_text(encoding='utf-8').strip()
+                    p = Path(saved)
+                    if p.exists():
+                        found_path = str(p)
+                except Exception:
+                    pass
+            
+            if not found_path:
+                # Quick check known locations only (no deep scan)
+                from run_extractor import check_folder_for_extractor
+                home = Path.home()
+                for base in [
+                    SCRIPT_DIR.parent / "UmaExtractor",
+                    home / "Downloads" / "UmaExtractor",
+                    home / "Desktop" / "UmaExtractor",
+                    home / "Documents" / "UmaExtractor",
+                ]:
+                    result = check_folder_for_extractor(base)
+                    if result:
+                        found_path = str(result)
+                        break
+            
+            self.send_json({
+                'found': found_path is not None,
+                'path': found_path or ''
+            })
+        
         elif parsed.path.startswith('/api/output/'):
             # Get output from running process
             action = parsed.path.split('/')[-1]
@@ -602,6 +714,50 @@ class LauncherHandler(http.server.SimpleHTTPRequestHandler):
         
         elif parsed.path == '/api/enrich':
             self.run_script('enrich', ['python', 'enrich_data.py'])
+        
+        elif parsed.path == '/api/locate_extractor':
+            # Open a file picker dialog in a background thread
+            import tkinter as tk
+            from tkinter import filedialog
+            
+            result = {'found': False, 'cancelled': False, 'path': ''}
+            
+            def pick_file():
+                try:
+                    root = tk.Tk()
+                    root.withdraw()
+                    root.attributes('-topmost', True)
+                    
+                    file_path = filedialog.askopenfilename(
+                        title="Locate UmaExtractor.exe",
+                        filetypes=[("UmaExtractor", "UmaExtractor.exe"), ("All executables", "*.exe")],
+                        initialdir=str(Path.home() / "Downloads")
+                    )
+                    
+                    root.destroy()
+                    
+                    if not file_path:
+                        result['cancelled'] = True
+                        return
+                    
+                    file_path = Path(file_path)
+                    if file_path.name.lower() == 'umaextractor.exe' and file_path.exists():
+                        # Save to cache file
+                        cached_path_file = SCRIPT_DIR / '.umaextractor_path'
+                        cached_path_file.write_text(str(file_path), encoding='utf-8')
+                        result['found'] = True
+                        result['path'] = str(file_path)
+                    else:
+                        result['found'] = False
+                except Exception as e:
+                    result['cancelled'] = True
+            
+            # Run tkinter in a thread to not block the server
+            t = threading.Thread(target=pick_file)
+            t.start()
+            t.join(timeout=120)
+            
+            self.send_json(result)
         
         else:
             self.send_error(404)

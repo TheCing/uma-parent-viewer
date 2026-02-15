@@ -1,6 +1,7 @@
 # User data
 data.json
 enriched_data.json
+.umaextractor_path
 
 # Release zips
 *.zip

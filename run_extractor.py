@@ -29,54 +29,132 @@ if sys.stderr:
 SCRIPT_DIR = Path(__file__).parent.resolve()
 
 
+CACHED_PATH_FILE = SCRIPT_DIR / ".umaextractor_path"
+
+
+def load_cached_path() -> Path | None:
+    """Load previously saved UmaExtractor path."""
+    if CACHED_PATH_FILE.exists():
+        try:
+            saved = CACHED_PATH_FILE.read_text(encoding='utf-8').strip()
+            path = Path(saved)
+            if path.exists():
+                return path
+        except Exception:
+            pass
+    return None
+
+
+def save_cached_path(path: Path):
+    """Save found UmaExtractor path for next time."""
+    try:
+        CACHED_PATH_FILE.write_text(str(path), encoding='utf-8')
+    except Exception:
+        pass
+
+
+def check_folder_for_extractor(base_path: Path) -> Path | None:
+    """Check a single folder for UmaExtractor exe or script."""
+    if not base_path.exists():
+        return None
+    
+    # Check standard layout: base/py/dist/UmaExtractor.exe
+    exe_path = base_path / "py" / "dist" / "UmaExtractor.exe"
+    if exe_path.exists():
+        return exe_path
+    
+    # Check root (exe placed directly in folder)
+    exe_path = base_path / "UmaExtractor.exe"
+    if exe_path.exists():
+        return exe_path
+    
+    # Check for Python script as fallback
+    script_path = base_path / "py" / "extract_umas.py"
+    if script_path.exists():
+        return script_path
+    
+    return None
+
+
+def recursive_search(search_dir: Path, max_depth: int = 4) -> Path | None:
+    """Recursively search a directory for UmaExtractor.exe up to max_depth levels."""
+    if not search_dir.exists() or not search_dir.is_dir():
+        return None
+    
+    try:
+        for entry in search_dir.iterdir():
+            if entry.is_file() and entry.name.lower() == 'umaextractor.exe':
+                return entry
+        
+        if max_depth > 0:
+            for entry in search_dir.iterdir():
+                if entry.is_dir() and not entry.name.startswith('.'):
+                    result = recursive_search(entry, max_depth - 1)
+                    if result:
+                        return result
+    except PermissionError:
+        pass
+    
+    return None
+
+
 def find_umaextractor() -> Path | None:
     """Search for UmaExtractor installation in common locations."""
     
-    # Possible locations to search
-    search_paths = []
+    # 1. Check cached path first (from previous run or launcher locate)
+    cached = load_cached_path()
+    if cached:
+        print(f"  [cached] {cached}")
+        return cached
     
-    # Check environment variable first
-    if os.environ.get("UMAEXTRACTOR_PATH"):
-        search_paths.append(Path(os.environ["UMAEXTRACTOR_PATH"]))
-    
-    # Common installation locations
+    # 2. Fast path: check known exact locations
     home = Path.home()
-    search_paths.extend([
-        # Sibling directory (same parent folder as uma-parent-viewer)
+    known_paths = [
         SCRIPT_DIR.parent / "UmaExtractor",
-        # User's Downloads folder (most common for average users)
         home / "Downloads" / "UmaExtractor",
-        # Other common locations
         home / "Desktop" / "UmaExtractor",
         home / "Documents" / "UmaExtractor",
         home / "Dev" / "UmaExtractor",
-        # Program Files
         Path("C:/Program Files/UmaExtractor"),
         Path("C:/Program Files (x86)/UmaExtractor"),
-        # Root of common drives
         Path("C:/UmaExtractor"),
         Path("D:/UmaExtractor"),
-    ])
+    ]
     
-    # Check each location for the exe or python script
-    for base_path in search_paths:
-        if not base_path.exists():
-            continue
-            
-        # Check for exe first (preferred - no dependencies needed)
-        exe_path = base_path / "py" / "dist" / "UmaExtractor.exe"
-        if exe_path.exists():
-            return exe_path
-        
-        # Also check root (in case exe was moved)
-        exe_path = base_path / "UmaExtractor.exe"
-        if exe_path.exists():
-            return exe_path
-        
-        # Check for Python script as fallback
-        script_path = base_path / "py" / "extract_umas.py"
-        if script_path.exists():
-            return script_path
+    for base_path in known_paths:
+        result = check_folder_for_extractor(base_path)
+        if result:
+            save_cached_path(result)
+            return result
+    
+    # 3. Deep search: recursively scan common directories for nested extracts
+    print("  Not in standard locations, scanning folders (this may take a moment)...")
+    deep_search_dirs = [
+        SCRIPT_DIR.parent,
+        home / "Downloads",
+        home / "Desktop",
+        home / "Documents",
+    ]
+    
+    # Also search OneDrive paths if present
+    onedrive = home / "OneDrive"
+    if onedrive.exists():
+        deep_search_dirs.append(onedrive / "Desktop")
+        deep_search_dirs.append(onedrive / "Documents")
+        deep_search_dirs.append(onedrive / "Downloads")
+        # Scan top-level OneDrive for any Desktop-like folders (handles localized names)
+        try:
+            for entry in onedrive.iterdir():
+                if entry.is_dir() and entry not in deep_search_dirs:
+                    deep_search_dirs.append(entry)
+        except PermissionError:
+            pass
+    
+    for search_dir in deep_search_dirs:
+        result = recursive_search(search_dir, max_depth=4)
+        if result:
+            save_cached_path(result)
+            return result
     
     return None
 
@@ -199,16 +277,18 @@ def main():
     extractor_path = find_umaextractor()
     
     if not extractor_path:
-        print("\n[ERROR] UmaExtractor not found!")
-        print("\nSearched in common locations:")
-        print("  - ../UmaExtractor/")
-        print("  - ~/Downloads/UmaExtractor/")
-        print("  - ~/Desktop/UmaExtractor/")
-        print("  - C:/Program Files/UmaExtractor/")
-        print("\nSolutions:")
-        print("  1. Set UMAEXTRACTOR_PATH environment variable to the install directory")
-        print("  2. Place UmaExtractor in one of the locations above")
-        print("  3. Download from: https://github.com/xancia/UmaExtractor/")
+        print("\n[ERROR] UmaExtractor.exe not found!")
+        print("\nSearched recursively in:")
+        print(f"  - {SCRIPT_DIR.parent}")
+        print(f"  - {Path.home() / 'Downloads'}")
+        print(f"  - {Path.home() / 'Desktop'}")
+        print(f"  - {Path.home() / 'Documents'}")
+        print(f"  - OneDrive folders (if present)")
+        print("\nHow to fix:")
+        print("  1. Use the 'Locate' button in the launcher to browse to UmaExtractor.exe")
+        print("  2. Or place the UmaExtractor folder next to this one")
+        print(f"     (put it at: {SCRIPT_DIR.parent / 'UmaExtractor'})")
+        print("  3. Download UmaExtractor: https://github.com/xancia/UmaExtractor/releases")
         sys.exit(1)
     
     # Run the extractor
