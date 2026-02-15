@@ -342,7 +342,7 @@ CONTROL_PANEL_HTML = '''<!DOCTYPE html>
         <div class="step-info">
           <h3>Extract Data</h3>
           <p>Pull veteran data from the running game</p>
-          <a href="https://github.com/FabulousCupcake/UmaExtractor/releases" target="_blank">Don't have UmaExtractor? Download it here →</a>
+          <a href="https://github.com/xancia/UmaExtractor/releases" target="_blank">Don't have UmaExtractor? Download it here →</a>
         </div>
         <div class="step-action">
           <button onclick="runStep('extract')">Extract</button>
