@@ -39,7 +39,59 @@ code, .mono {
 .app {
   display: grid;
   grid-template-columns: 320px 1fr;
+  grid-template-rows: auto 1fr;
   height: 100vh;
+}
+
+/* Ticker */
+.ticker-bar {
+  grid-column: 1 / -1;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  height: 28px;
+  display: flex;
+  align-items: center;
+}
+
+.ticker-track {
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.ticker-content {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  animation: ticker-scroll 60s linear infinite;
+  gap: 0;
+}
+
+.ticker-item {
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  padding: 0 16px;
+}
+
+.ticker-sep {
+  font-size: 10px;
+  color: var(--border);
+  padding: 0 4px;
+}
+
+.ticker-bar:hover .ticker-content {
+  animation-play-state: paused;
+}
+
+.ticker-bar:hover .ticker-item {
+  color: var(--text-secondary);
+}
+
+@keyframes ticker-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 /* Sidebar */

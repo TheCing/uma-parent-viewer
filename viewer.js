@@ -399,8 +399,33 @@ function countActiveFilters() {
 }
 
 // ============================================
+// TICKER
+// ============================================
+
+const TICKER_MESSAGES = [
+  { text: "Welcome to Uma Parent Viewer! Use Ace mode for full stats, Parent mode for inheritance." },
+  { text: "Tip: Use the spark search bar to find Uma with specific sparks across your entire account." },
+  { text: "Tip: In the Optimizer, adjust scoring values to match your priorities." },
+  { text: "Tip: Protection rules let you safeguard Uma with key sparks from being marked for transfer." },
+  { text: "Tip: All your settings, filters, and sort preferences are saved automatically." },
+  { text: "Tip: Click any Uma in the optimizer results to jump to their full detail view." },
+  { text: "Did you know? Star filters in spark search work on both main Uma and parent sparks." },
+];
+
+// ============================================
 // RENDER
 // ============================================
+
+function renderTicker() {
+  const messages = TICKER_MESSAGES.map(m => `<span class="ticker-item">${m.text}</span>`).join('<span class="ticker-sep">//</span>');
+  return `
+    <div class="ticker-bar">
+      <div class="ticker-track">
+        <div class="ticker-content">${messages}${messages}</div>
+      </div>
+    </div>
+  `;
+}
 
 function render() {
   const app = document.getElementById('app');
@@ -409,6 +434,7 @@ function render() {
   const activeFilters = countActiveFilters();
   
   app.innerHTML = `
+    ${renderTicker()}
     <aside class="sidebar">
       <div class="sidebar-header">
         <div class="logo-row">
