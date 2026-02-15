@@ -2,7 +2,7 @@
 
 A data enrichment and visualization tool for Uma Musume Pretty Derby trained character data.
 
-Works with data exported from [UmaExtractor](https://github.com/FabulousCupcake/UmaExtractor).
+Works with data exported from [UmaExtractor](https://github.com/xancia/UmaExtractor).
 
 ## Features
 
