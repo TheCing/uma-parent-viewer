@@ -157,6 +157,141 @@ code, .mono {
   color: var(--text-muted);
 }
 
+/* Spark Search */
+.spark-search-box {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.spark-search-input-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.spark-search-input-row input {
+  width: 100%;
+  padding: 8px 12px;
+  padding-right: 30px;
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.spark-search-input-row input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.spark-search-input-row input::placeholder {
+  color: var(--text-muted);
+}
+
+.spark-search-clear {
+  position: absolute;
+  right: 6px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  line-height: 1;
+  border-radius: 4px;
+}
+
+.spark-search-clear:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+}
+
+.spark-autocomplete {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  z-index: 100;
+  margin-top: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.spark-autocomplete.visible {
+  display: block;
+}
+
+.spark-ac-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.spark-ac-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.spark-ac-item strong {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.spark-ac-empty {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.spark-search-controls {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.spark-star-filter,
+.spark-scope-toggle {
+  display: flex;
+  gap: 3px;
+}
+
+.spark-star-btn,
+.spark-scope-btn {
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 3px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.spark-star-btn:hover,
+.spark-scope-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.spark-star-btn.active,
+.spark-scope-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-base);
+}
+
 /* Sort and Filter controls */
 .controls-row {
   display: flex;

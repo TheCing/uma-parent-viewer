@@ -47,6 +47,37 @@ let highValueSkills = JSON.parse(localStorage.getItem('uma_high_value_skills')) 
 const DEFAULT_SCENARIO_SPARKS = ['URA Finale', 'Unity Cup'];
 let scenarioSparks = JSON.parse(localStorage.getItem('uma_scenario_sparks')) || [...DEFAULT_SCENARIO_SPARKS];
 
+// Spark search state
+let sparkSearchName = localStorage.getItem('uma_spark_search_name') || '';
+let sparkSearchStars = localStorage.getItem('uma_spark_search_stars') || 'all';
+let sparkSearchScope = localStorage.getItem('uma_spark_search_scope') || 'total';
+let allSparkNames = []; // populated on data load
+
+function buildSparkNameIndex() {
+  const names = new Set();
+  for (const char of data) {
+    const sparks = char.spark_array_enriched || [];
+    for (const s of sparks) {
+      if (s.spark_name_en) names.add(s.spark_name_en);
+    }
+    const succession = char.succession_chara_array || [];
+    for (const parent of succession) {
+      if (parent.factor_info_array) {
+        for (const f of parent.factor_info_array) {
+          if (f.spark_name_en) names.add(f.spark_name_en);
+        }
+      }
+    }
+  }
+  allSparkNames = [...names].sort((a, b) => a.localeCompare(b));
+}
+
+function saveSparkSearch() {
+  localStorage.setItem('uma_spark_search_name', sparkSearchName);
+  localStorage.setItem('uma_spark_search_stars', sparkSearchStars);
+  localStorage.setItem('uma_spark_search_scope', sparkSearchScope);
+}
+
 function saveOptimizationSettings() {
   localStorage.setItem('uma_score_values', JSON.stringify(scoreValues));
   localStorage.setItem('uma_high_value_skills', JSON.stringify(highValueSkills));
@@ -134,6 +165,9 @@ async function loadData() {
       }
     });
     
+    // Build spark name autocomplete index
+    buildSparkNameIndex();
+    
     render();
   } catch (err) {
     document.getElementById('app').innerHTML = `
@@ -216,7 +250,38 @@ function passesFilters(char) {
   // Spark filters
   if (!passesSparkFilters(char)) return false;
   
+  // Spark name search
+  if (sparkSearchName) {
+    if (!passesSparkSearch(char)) return false;
+  }
+  
   return true;
+}
+
+function passesSparkSearch(char) {
+  const query = sparkSearchName.toLowerCase();
+  const mainSparks = char.spark_array_enriched || [];
+  
+  let searchSparks = [...mainSparks];
+  if (sparkSearchScope === 'total') {
+    const succession = char.succession_chara_array || [];
+    for (const parent of succession) {
+      if (parent.factor_info_array) {
+        searchSparks.push(...parent.factor_info_array);
+      }
+    }
+  }
+  
+  return searchSparks.some(s => {
+    const name = (s.spark_name_en || '').toLowerCase();
+    if (!name.includes(query)) return false;
+    const stars = s.stars || 0;
+    if (sparkSearchStars === 'all') return true;
+    if (sparkSearchStars === '1+') return stars >= 1;
+    if (sparkSearchStars === '2+') return stars >= 2;
+    if (sparkSearchStars === '3') return stars >= 3;
+    return true;
+  });
 }
 
 function passesSparkFilters(char) {
@@ -327,6 +392,9 @@ function countActiveFilters() {
   if (!filters.uniqueSparks.enabled || filters.uniqueSparks.starFilter !== 'all' ||
       filters.uniqueSparks.includeParents) count++;
   
+  // Spark name search
+  if (sparkSearchName) count++;
+  
   return count;
 }
 
@@ -352,7 +420,26 @@ function render() {
           </div>
         </div>
         <div class="search-box">
-          <input type="text" id="search" placeholder="search..." autocomplete="off">
+          <input type="text" id="search" placeholder="search uma..." autocomplete="off">
+        </div>
+        <div class="spark-search-box">
+          <div class="spark-search-input-row">
+            <input type="text" id="spark-search" placeholder="search sparks..." autocomplete="off" value="${sparkSearchName}">
+            ${sparkSearchName ? '<button class="spark-search-clear" id="spark-search-clear">&times;</button>' : ''}
+          </div>
+          <div class="spark-autocomplete" id="spark-autocomplete"></div>
+          <div class="spark-search-controls">
+            <div class="spark-star-filter">
+              <button class="spark-star-btn ${sparkSearchStars === 'all' ? 'active' : ''}" data-stars="all">All</button>
+              <button class="spark-star-btn ${sparkSearchStars === '1+' ? 'active' : ''}" data-stars="1+">★+</button>
+              <button class="spark-star-btn ${sparkSearchStars === '2+' ? 'active' : ''}" data-stars="2+">★★+</button>
+              <button class="spark-star-btn ${sparkSearchStars === '3' ? 'active' : ''}" data-stars="3">★★★</button>
+            </div>
+            <div class="spark-scope-toggle">
+              <button class="spark-scope-btn ${sparkSearchScope === 'main' ? 'active' : ''}" data-scope="main">Main</button>
+              <button class="spark-scope-btn ${sparkSearchScope === 'total' ? 'active' : ''}" data-scope="total">+ Parents</button>
+            </div>
+          </div>
         </div>
       </div>
       <div class="controls-row">
@@ -446,6 +533,9 @@ function render() {
   });
   document.getElementById('filter-apply').addEventListener('click', applyFilters);
   document.getElementById('filter-reset').addEventListener('click', resetFilters);
+  
+  // Spark search listeners
+  attachSparkSearchListeners();
   
   // Optimization listeners
   attachOptimizeListeners();
@@ -694,6 +784,151 @@ function resetFilters() {
   filters = JSON.parse(JSON.stringify(defaultFilters));
   document.getElementById('filter-content').innerHTML = renderFilterContent();
   attachFilterListeners();
+  
+  // Also clear spark search
+  sparkSearchName = '';
+  sparkSearchStars = 'all';
+  sparkSearchScope = 'total';
+  saveSparkSearch();
+  const sparkInput = document.getElementById('spark-search');
+  if (sparkInput) sparkInput.value = '';
+  updateSparkSearchClear();
+  document.querySelectorAll('.spark-star-btn').forEach(b => b.classList.toggle('active', b.dataset.stars === 'all'));
+  document.querySelectorAll('.spark-scope-btn').forEach(b => b.classList.toggle('active', b.dataset.scope === 'total'));
+}
+
+// ============================================
+// SPARK SEARCH
+// ============================================
+
+function attachSparkSearchListeners() {
+  const input = document.getElementById('spark-search');
+  const acContainer = document.getElementById('spark-autocomplete');
+  if (!input || !acContainer) return;
+  
+  input.addEventListener('input', () => {
+    const val = input.value.trim();
+    if (val.length === 0) {
+      acContainer.innerHTML = '';
+      acContainer.classList.remove('visible');
+      if (sparkSearchName) {
+        sparkSearchName = '';
+        saveSparkSearch();
+        filterAndSortList();
+        updateSparkSearchClear();
+      }
+      return;
+    }
+    
+    const query = val.toLowerCase();
+    const matches = allSparkNames.filter(name => name.toLowerCase().includes(query)).slice(0, 12);
+    
+    if (matches.length > 0) {
+      acContainer.innerHTML = matches.map(name => {
+        const highlighted = name.replace(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi'), '<strong>$1</strong>');
+        return `<div class="spark-ac-item" data-spark-name="${name}">${highlighted}</div>`;
+      }).join('');
+      acContainer.classList.add('visible');
+      
+      acContainer.querySelectorAll('.spark-ac-item').forEach(el => {
+        el.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          const name = el.dataset.sparkName;
+          input.value = name;
+          sparkSearchName = name;
+          saveSparkSearch();
+          acContainer.innerHTML = '';
+          acContainer.classList.remove('visible');
+          updateSparkSearchClear();
+          filterAndSortList();
+        });
+      });
+    } else {
+      acContainer.innerHTML = '<div class="spark-ac-empty">No matching sparks</div>';
+      acContainer.classList.add('visible');
+    }
+  });
+  
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const val = input.value.trim();
+      if (val) {
+        sparkSearchName = val;
+        saveSparkSearch();
+        acContainer.innerHTML = '';
+        acContainer.classList.remove('visible');
+        updateSparkSearchClear();
+        filterAndSortList();
+      }
+    }
+    if (e.key === 'Escape') {
+      acContainer.innerHTML = '';
+      acContainer.classList.remove('visible');
+    }
+  });
+  
+  input.addEventListener('blur', () => {
+    setTimeout(() => {
+      acContainer.innerHTML = '';
+      acContainer.classList.remove('visible');
+    }, 150);
+  });
+  
+  // Clear button
+  document.getElementById('spark-search-clear')?.addEventListener('click', () => {
+    input.value = '';
+    sparkSearchName = '';
+    saveSparkSearch();
+    updateSparkSearchClear();
+    filterAndSortList();
+  });
+  
+  // Star filter buttons
+  document.querySelectorAll('.spark-star-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sparkSearchStars = btn.dataset.stars;
+      saveSparkSearch();
+      document.querySelectorAll('.spark-star-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterAndSortList();
+    });
+  });
+  
+  // Scope toggle buttons
+  document.querySelectorAll('.spark-scope-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      sparkSearchScope = btn.dataset.scope;
+      saveSparkSearch();
+      document.querySelectorAll('.spark-scope-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      filterAndSortList();
+    });
+  });
+}
+
+function updateSparkSearchClear() {
+  const input = document.getElementById('spark-search');
+  const box = input?.closest('.spark-search-input-row');
+  if (!box) return;
+  const existing = box.querySelector('.spark-search-clear');
+  if (sparkSearchName) {
+    if (!existing) {
+      const btn = document.createElement('button');
+      btn.className = 'spark-search-clear';
+      btn.id = 'spark-search-clear';
+      btn.textContent = '\u00d7';
+      btn.addEventListener('click', () => {
+        input.value = '';
+        sparkSearchName = '';
+        saveSparkSearch();
+        updateSparkSearchClear();
+        filterAndSortList();
+      });
+      box.appendChild(btn);
+    }
+  } else {
+    existing?.remove();
+  }
 }
 
 function updateSortDirButton() {

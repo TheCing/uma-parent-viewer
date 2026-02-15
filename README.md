@@ -49,7 +49,7 @@ The script searches for UmaExtractor in common locations (`../UmaExtractor/`, `~
 
 #### Option B: Manual
 
-Use [UmaExtractor](https://github.com/FabulousCupcake/UmaExtractor) directly to export your trained character data, then copy `data.json` to this directory.
+Use [UmaExtractor](https://github.com/xancia/UmaExtractor/) directly to export your trained character data, then copy `data.json` to this directory.
 
 ### 2. Enrich the data
 

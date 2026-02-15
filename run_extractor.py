@@ -208,7 +208,7 @@ def main():
         print("\nSolutions:")
         print("  1. Set UMAEXTRACTOR_PATH environment variable to the install directory")
         print("  2. Place UmaExtractor in one of the locations above")
-        print("  3. Download from: https://github.com/FabulousCupcake/UmaExtractor")
+        print("  3. Download from: https://github.com/xancia/UmaExtractor/")
         sys.exit(1)
     
     # Run the extractor
