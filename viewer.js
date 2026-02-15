@@ -404,6 +404,8 @@ function countActiveFilters() {
 
 const TICKER_MESSAGES = [
   { text: "Welcome to Uma Parent Viewer! Use Ace mode for full stats, Parent mode for inheritance." },
+  { text: "This app never saves your data anywhere. It's all in your browser." },
+  { text: "Ping @Cing in MooCord with any issues or requests." },
   { text: "Tip: Use the spark search bar to find Uma with specific sparks across your entire account." },
   { text: "Tip: In the Optimizer, adjust scoring values to match your priorities." },
   { text: "Tip: Protection rules let you safeguard Uma with key sparks from being marked for transfer." },
