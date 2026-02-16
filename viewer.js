@@ -1132,6 +1132,7 @@ function renderGrade(value) {
 function getSparkTypeClass(sparkId) {
   const id = parseInt(sparkId) || 0;
   if (id >= 100 && id < 600) return 'spark-type-stat';
+  if (id >= 1100 && id < 1300) return 'spark-type-distance';
   if (id >= 2100 && id < 2500) return 'spark-type-distance';
   if (id >= 3100 && id < 3500) return 'spark-type-distance';
   if (id >= 10000000 && id < 20000000) return 'spark-type-unique';
@@ -1141,6 +1142,7 @@ function getSparkTypeClass(sparkId) {
 function getSparkSortPriority(sparkId) {
   const id = parseInt(sparkId) || 0;
   if (id >= 100 && id < 600) return 0;
+  if (id >= 1100 && id < 1300) return 1;
   if (id >= 2100 && id < 2500) return 1;
   if (id >= 3100 && id < 3500) return 1;
   if (id >= 10000000 && id < 20000000) return 2;
@@ -1337,7 +1339,7 @@ function renderInheritanceSparks(char) {
   
   return `
     <div class="inheritance-view">
-      <div class="inheritance-uma current">
+      <div class="inheritance-uma current" data-card-id="${char.card_id || ''}" data-trained-id="${char.trained_chara_id || ''}">
         <div class="inheritance-uma-header">
           <span class="inheritance-uma-name">${char.chara_name_en || 'Unknown'}</span>
           <span class="inheritance-uma-label">This Uma</span>
@@ -1349,7 +1351,7 @@ function renderInheritanceSparks(char) {
       
       <div class="inheritance-parents">
         ${parent1 ? `
-          <div class="inheritance-uma parent">
+          <div class="inheritance-uma parent" data-card-id="${parent1.card_id || ''}" data-trained-id="${char.succession_trained_chara_id_1 || ''}">
             <div class="inheritance-uma-header">
               <span class="inheritance-uma-name">${parent1.chara_name_en || 'Parent 1'}</span>
               <span class="inheritance-uma-label">Parent 1</span>
@@ -1361,7 +1363,7 @@ function renderInheritanceSparks(char) {
         ` : '<div class="inheritance-uma parent"><span style="color:var(--text-muted)">No parent data</span></div>'}
         
         ${parent2 ? `
-          <div class="inheritance-uma parent">
+          <div class="inheritance-uma parent" data-card-id="${parent2.card_id || ''}" data-trained-id="${char.succession_trained_chara_id_2 || ''}">
             <div class="inheritance-uma-header">
               <span class="inheritance-uma-name">${parent2.chara_name_en || 'Parent 2'}</span>
               <span class="inheritance-uma-label">Parent 2</span>
