@@ -1300,7 +1300,7 @@ function renderSparks(char) {
     <div class="section">
       <div class="section-title">Sparks <span class="count">${sparks.length}</span></div>
       <div class="tag-list">
-        ${sortedSparks.map(s => `<span class="tag spark-tag ${getStarClass(s.stars)} ${getSparkTypeClass(s.spark_id)}">${s.spark_name_en || s.spark_id} <span class="spark-stars">${getStars(s.stars)}</span></span>`).join('')}
+        ${sortedSparks.map(s => `<span class="tag spark-tag ${getStarClass(s.stars)} ${getSparkTypeClass(s.spark_id)}" data-spark-id="${s.spark_id || ''}">${s.spark_name_en || s.spark_id} <span class="spark-stars">${getStars(s.stars)}</span></span>`).join('')}
       </div>
     </div>
   `;
@@ -1322,7 +1322,7 @@ function renderInheritanceSparks(char) {
     return sorted.map(s => {
       const sparkId = s.spark_id || s.factor_id;
       return `
-        <span class="inheritance-spark ${getStarClass(s.stars)} ${getSparkTypeClass(sparkId)}">
+        <span class="inheritance-spark ${getStarClass(s.stars)} ${getSparkTypeClass(sparkId)}" data-spark-id="${sparkId || ''}">
           <span>${s.spark_name_en || sparkId || '?'}</span>
           <span class="spark-stars">${getStars(s.stars)}</span>
         </span>

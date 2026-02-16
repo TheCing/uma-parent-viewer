@@ -1,26 +1,24 @@
 # /// script
 # requires-python = ">=3.10"
-# dependencies = [
-#     "requests",
-# ]
+# dependencies = []
 # ///
 """
-Enrich data.json with English names from uma-tools Global data.
+Enrich data.json with English names from bundled data files.
 
-This script downloads the community Global English data from uma-tools
-and enriches the extracted veteran data with human-readable names.
+All reference data is loaded from the local data/ directory (no network needed).
+To update reference data, run generate_data.py to refresh from upstream sources.
 
 Usage:
     python enrich_data.py [input.json] [output.json]
     
 If no arguments provided, reads data.json and writes enriched_data.json
 
-Data sources:
-- https://github.com/TheCing/uma-tools (umalator-global)
+Data sources (bundled in data/):
+- uma-tools: skillnames, skill_data, umas (https://github.com/TheCing/uma-tools)
+- Generated from UmaTL with Global corrections applied by generate_data.py
 """
 
 import json
-import subprocess
 import sys
 from pathlib import Path
 
@@ -30,25 +28,8 @@ if sys.stdout:
 if sys.stderr:
     sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 
-# Auto-install requests if not available
-try:
-    import requests
-except ImportError:
-    print("Installing required dependency: requests...")
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "-q", "requests"])
-    import requests
-
-# uma-tools data URLs
-# Global version (official English names)
-SKILLNAMES_GLOBAL_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/umalator-global/skillnames.json"
-UMAS_GLOBAL_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/umalator-global/umas.json"
-# JP version (more complete, includes EN translations for JP-only content)
-SKILLNAMES_JP_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/uma-skill-tools/data/skillnames.json"
-UMAS_FULL_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/umas.json"
-# Skill data (conditions, effects, durations)
-SKILL_DATA_URL = "https://raw.githubusercontent.com/TheCing/uma-tools/master/uma-skill-tools/data/skill_data.json"
-# UmaTL text data for support card names, spark names, and other text
-TEXT_DATA_URL = "https://raw.githubusercontent.com/UmaTL/hachimi-tl-en/main/localized_data/text_data_dict.json"
+SCRIPT_DIR = Path(__file__).parent.resolve()
+DATA_DIR = SCRIPT_DIR / "data"
 
 # Effect type mappings from uma-tools RaceSolver.ts
 EFFECT_TYPES = {
@@ -87,131 +68,51 @@ CONDITION_TERMS = {
     "distance_type": {"1": "Sprint", "2": "Mile", "3": "Medium", "4": "Long"},
 }
 
-# Spark name corrections: JP community terms → Global official terms
-# These fix translations from UmaTL that use JP community terms instead of official Global names
-# Sourced from uma-tools umalator-global/skillnames.json
-SPARK_NAME_CORRECTIONS = {
-    # Running style aptitudes (exact matches for spark names from category 147)
-    "Runner": "Front Runner",
-    "Leader": "Pace Chaser", 
-    "Betweener": "Late Surger",
-    "Chaser": "End Closer",
-    
-    # Track condition skills
-    "Bad Track Condition ○": "Wet Conditions ○",
-    "Bad Track Condition ◎": "Wet Conditions ◎",
-    "Bad Track Condition ×": "Wet Conditions ×",
-    
-    # Running style specific skills
-    "Frontrunner": "Early Lead",
-    "Runner's Corners ○": "Front Runner Corners ○",
-    "Runner's Corners ◎": "Front Runner Corners ◎",
-    "Runner's Straights ○": "Front Runner Straightaways ○",
-    "Runner's Straights ◎": "Front Runner Straightaways ◎",
-    "Runner's Tricks ○": "Front Runner Savvy ○",
-    "Runner's Tricks ◎": "Front Runner Savvy ◎",
-    "Leader's Corners ○": "Pace Chaser Corners ○",
-    "Leader's Corners ◎": "Pace Chaser Corners ◎",
-    "Leader's Straights ○": "Pace Chaser Straightaways ○",
-    "Leader's Straights ◎": "Pace Chaser Straightaways ◎",
-    "Leader's Tricks ○": "Pace Chaser Savvy ○",
-    "Leader's Tricks ◎": "Pace Chaser Savvy ◎",
-    "Betweener's Corners ○": "Late Surger Corners ○",
-    "Betweener's Corners ◎": "Late Surger Corners ◎",
-    "Betweener's Straights ○": "Late Surger Straightaways ○",
-    "Betweener's Straights ◎": "Late Surger Straightaways ◎",
-    "Betweener's Tricks ○": "Late Surger Savvy ○",
-    "Betweener's Tricks ◎": "Late Surger Savvy ◎",
-    "Chaser's Corners ○": "End Closer Corners ○",
-    "Chaser's Corners ◎": "End Closer Corners ◎",
-    "Chaser's Straights ○": "End Closer Straightaways ○",
-    "Chaser's Straights ◎": "End Closer Straightaways ◎",
-    "Chaser's Tricks ○": "End Closer Savvy ○",
-    "Chaser's Tricks ◎": "End Closer Savvy ◎",
-    
-    # Debuff skills
-    "Frantic Runners": "Frenzied Front Runners",
-    "Restrained Runners": "Subdued Front Runners",
-    "Panicked Runners": "Flustered Front Runners",
-    "Faltering Runners": "Hesitant Front Runners",
-    "Frantic Leaders": "Frenzied Pace Chasers",
-    "Restrained Leaders": "Subdued Pace Chasers",
-    "Panicked Leaders": "Flustered Pace Chasers",
-    "Faltering Leaders": "Hesitant Pace Chasers",
-    "Frantic Betweeners": "Frenzied Late Surgers",
-    "Restrained Betweeners": "Subdued Late Surgers",
-    "Panicked Betweeners": "Flustered Late Surgers",
-    "Faltering Betweeners": "Hesitant Late Surgers",
-    "Frantic Chasers": "Frenzied End Closers",
-    "Restrained Chasers": "Subdued End Closers",
-    "Panicked Chasers": "Flustered End Closers",
-    "Faltering Chasers": "Hesitant End Closers",
-    
-    # Common skill name differences (from Global skillnames.json)
-    "Position Swiper": "Position Pilfer",
-    "100K Horsepower": "1,500,000 CC",
-    "1M Horsepower": "15,000,000 CC",
-    "Blue Rose Chaser": "Blue Rose Closer",
-    "Backup Belly": "Extra Tank",
-    "Big Strides": "Furious Feat",
-    "Autumn Girl ○": "Fall Runner ○",
-    "Autumn Girl ◎": "Fall Runner ◎",
-    "Autumn Girl ×": "Fall Runner ×",
-    
-    # Stat name
-    "Wisdom": "Wit",
-}
-
-# Nickname/epithet name corrections: JP community terms → Global official terms
-# These fix translations from UmaTL that use JP community terms instead of official Global names
-NICKNAME_NAME_CORRECTIONS = {
-    # Stat names in bonuses (Int → Wit)
-    "Int Bonus": "Wit Bonus",
-    "Int Cap Up": "Wit Cap Up",
-    # Add more as needed
-}
-
-# Spark names are loaded dynamically from text_data category 147
-# Race names are loaded dynamically from text_data category 36
-# Nickname names are loaded dynamically from text_data categories 130 and 151
+# All terminology corrections are now pre-baked into the generated data files.
+# Run generate_data.py to refresh from upstream with corrections applied.
 
 
-def download_json(url: str, name: str) -> dict:
-    """Download JSON data from URL."""
-    print(f"Downloading {name}...")
+def load_json(filename: str) -> dict:
+    """Load a JSON file from the data/ directory."""
+    path = DATA_DIR / filename
     try:
-        response = requests.get(url, timeout=30)
-        response.raise_for_status()
-        data = response.json()
-        print(f"  [OK] {name} ({len(data)} entries)")
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        print(f"  [OK] {filename} ({len(data)} entries)")
         return data
-    except requests.RequestException as e:
-        print(f"  [!] Warning: Could not download {name}: {e}")
+    except FileNotFoundError:
+        print(f"  [!] Warning: {path} not found — run generate_data.py first")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"  [!] Warning: Invalid JSON in {path}: {e}")
         return {}
 
 
-def download_all_data() -> dict:
-    """Download all translation/name data."""
+def load_all_data() -> dict:
+    """Load all reference data from local data/ directory."""
+    if not DATA_DIR.exists():
+        print(f"[!] data/ directory not found at {DATA_DIR}")
+        print("    Run generate_data.py to create it.")
+        return {}
+
+    print("Loading reference data from data/...")
     data = {}
-    
-    # Skill names - Global version (official EN names): {"skill_id": ["Skill Name"]}
-    data["skills_global"] = download_json(SKILLNAMES_GLOBAL_URL, "skillnames.json (global)")
-    
-    # Skill names - JP version (more complete, with EN translations): {"skill_id": ["JP", "EN"]}
-    data["skills_jp"] = download_json(SKILLNAMES_JP_URL, "skillnames.json (jp)")
-    
-    # Skill data - conditions, effects, durations
-    data["skill_data"] = download_json(SKILL_DATA_URL, "skill_data.json")
-    
-    # Uma data (Global version - limited but accurate)
-    data["umas_global"] = download_json(UMAS_GLOBAL_URL, "umas.json (global)")
-    
-    # Uma data (full - has all characters but JP outfits)
-    data["umas_full"] = download_json(UMAS_FULL_URL, "umas.json (full)")
-    
-    # UmaTL text data (for support cards, spark names, and other text)
-    data["text_data"] = download_json(TEXT_DATA_URL, "text_data_dict.json")
-    
+
+    # uma-tools data
+    data["skills_global"] = load_json("skillnames_global.json")
+    data["skills_jp"] = load_json("skillnames_jp.json")
+    data["skill_data"] = load_json("skill_data.json")
+    data["umas_global"] = load_json("umas_global.json")
+    data["umas_full"] = load_json("umas_full.json")
+
+    # Generated data (from UmaTL with Global corrections applied)
+    data["sparknames"] = load_json("sparknames_global.json")
+    data["racenames"] = load_json("racenames_global.json")
+    data["outfitnames"] = load_json("outfitnames_global.json")
+    data["supportcardnames"] = load_json("supportcardnames_global.json")
+    data["racetitles"] = load_json("racetitles_global.json")
+    data["nicknames"] = load_json("nicknames_global.json")
+
     return data
 
 
@@ -453,93 +354,84 @@ def get_skill_name(data: dict, skill_id: int | str) -> str | None:
     return None
 
 
-def correct_spark_name(name: str) -> str:
-    """Apply Global terminology corrections to spark names."""
-    if not name:
-        return name
-    
-    # Check for exact match first
-    if name in SPARK_NAME_CORRECTIONS:
-        return SPARK_NAME_CORRECTIONS[name]
-    
-    # Check for partial replacements (for compound names)
-    corrected = name
-    for wrong, right in SPARK_NAME_CORRECTIONS.items():
-        if wrong in corrected:
-            corrected = corrected.replace(wrong, right)
-    
-    return corrected
-
-
 def get_spark_name(data: dict, spark_id: int) -> str | None:
     """Decode spark ID to human-readable name (called "Factors" in JP, "Sparks" in Global).
-    
-    Uses Global skillnames.json for skill sparks, text_data for other types.
     
     Spark ID encoding:
     - 1XX-5XX: Stats (Speed, Stamina, Power, Guts, Wit)
     - 11XX-12XX: Ground aptitude (Turf, Dirt)
     - 21XX-24XX: Running style (Front Runner, Pace Chaser, Late Surger, End Closer)
     - 31XX-34XX: Distance (Sprint, Mile, Medium, Long)
-    - 100XXXXX: Unique skill sparks (8 digits, use Global skill name lookup)
+    - 100XXXXX: Unique skill sparks (8 digits)
     - 100XXXX: Race sparks (7 digits, XXXX = race program ID)
-    - 200XXXX: Skill sparks (7 digits, use Global skill name lookup)
+    - 200XXXX: Skill sparks (7 digits, derived from white skill name)
     - 3000XXX: Scenario sparks
-    """
-    text_data = data.get("text_data", {})
     
-    # FIRST: Check if it's a unique skill spark (8 digits starting with 10)
+    Name sources:
+    - Unique sparks → skillnames_global.json (base or alt unique skill)
+    - Skill sparks  → skillnames_global.json (white version, rarity=1)
+    - Race sparks   → racenames_global.json
+    - Everything else → sparknames_global.json (stat, distance, style, scenario, etc.)
+    """
+    # FIRST: Unique skill sparks (8 digits starting with 10)
     # Format: 10[XXX][V][ZZ] where XXX=char index, V=outfit variant (1=base, 2=alt), ZZ=star level
-    # In-game, unique sparks ALWAYS display the white (unevolved) version of the character's
-    # base unique skill, regardless of outfit variant. So we always map to 10XXXX (base unique).
-    # Example: 10040201 (Maruzensky alt, 1-star) -> 100041 "Red Shift/LP1211-M" (not "A Kiss for Courage")
+    # Each outfit has its own unique skill:
+    #   V=1 (base): skill prefix 10XXXX (e.g., 100061 "Triumphant Pulse")
+    #   V=2 (alt):  skill prefix 11XXXX (e.g., 110061 "Festive Miracle")
     if 10000000 <= spark_id < 20000000:
         spark_str = str(spark_id)
         if len(spark_str) == 8:
             middle = int(spark_str[2:5])
-            skill_id = 100001 + middle
+            variant = int(spark_str[5])
+            if variant == 2:
+                skill_id = 110001 + middle  # Alt outfit unique (11XXXX)
+            else:
+                skill_id = 100001 + middle  # Base outfit unique (10XXXX)
             skill_name = get_skill_name(data, skill_id)
             if skill_name:
-                return skill_name  # Global name from skillnames.json (white/unevolved)
+                return skill_name
     
-    # SECOND: For skill sparks (200XXXX format, 7 digits), try Global skillnames.json FIRST
-    # This gives us authoritative Global names directly without needing corrections
-    # Formula: skill_id = (spark_id // 100) * 10 + (spark_id % 10)
-    # In-game, sparks ALWAYS display the white (Normal, rarity=2) version of a skill.
-    # If the formula resolves to a gold (Rare, rarity=1) skill, find the white counterpart.
+    # SECOND: Skill sparks (200XXXX format, 7 digits)
+    # In Global, sparks always display the WHITE skill name.
+    # Derive skill group from spark ID, find the white version (rarity=1),
+    # and use its Global name from skillnames_global.json.
     if 2000000 <= spark_id < 3000000:
-        skill_id = (spark_id // 100) * 10 + (spark_id % 10)
-        skill_data_dict = data.get("skill_data", {})
-        skill_entry = skill_data_dict.get(str(skill_id), {})
-        if skill_entry.get("rarity") == 1:
-            group_base = (skill_id // 10) * 10
-            for digit in range(1, 5):
-                candidate = group_base + digit
-                candidate_entry = skill_data_dict.get(str(candidate), {})
-                if candidate_entry.get("rarity") == 2:
-                    skill_id = candidate
-                    break
-        skill_name = get_skill_name(data, skill_id)
-        if skill_name:
-            return skill_name  # Global name from skillnames.json - white version
+        # spark 200XXYY → skill group base 200XX0
+        group_base = (spark_id // 100) * 10
+        skill_data = data.get("skill_data", {})
+        
+        # Find the white skill (rarity=1) in this group
+        for digit in range(1, 10):
+            candidate_id = group_base + digit
+            entry = skill_data.get(str(candidate_id), {})
+            if entry.get("rarity") == 1:
+                name = get_skill_name(data, candidate_id)
+                if name:
+                    return name
+                break
+        
+        # Fallback: try any skill in the group from Global skillnames
+        for digit in range(1, 10):
+            candidate_id = group_base + digit
+            name = get_skill_name(data, candidate_id)
+            if name:
+                return name
     
-    # THIRD: Check text_data category 147 for non-skill sparks (stats, aptitudes, etc.)
-    # or as fallback for skill sparks not found in Global skillnames.json
-    cat_147 = text_data.get("147", {})
-    spark_name = cat_147.get(str(spark_id))
-    if spark_name:
-        return correct_spark_name(spark_name)
-    
-    # FOURTH: Check if it's a race spark (100XXXX format, 7 digits)
+    # THIRD: Race sparks (100XXXX format, 7 digits)
     if 1000000 <= spark_id < 10000000:
         race_program_id = spark_id // 100
-        
-        # Category 36 has race names, text_id = 1000 + (race_program_id % 1000)
-        cat_36 = text_data.get("36", {})
+        racenames = data.get("racenames", {})
         text_race_id = 1000 + (race_program_id % 1000)
-        race_name = cat_36.get(str(text_race_id))
+        race_name = racenames.get(str(text_race_id))
         if race_name:
-            return correct_spark_name(race_name)
+            return race_name
+    
+    # FOURTH: Everything else (stats, distance, style, scenario, etc.)
+    # These don't map to skill IDs — use sparknames_global.json
+    sparknames = data.get("sparknames", {})
+    spark_name = sparknames.get(str(spark_id))
+    if spark_name:
+        return spark_name
     
     return None
 
@@ -559,71 +451,34 @@ SUPPORT_CARD_TYPES = {
 def get_race_title_name(data: dict, saddle_id: int) -> str | None:
     """Look up race/title name from saddle ID.
     
-    Uses text_data category 111 which maps saddle IDs to race names/titles.
-    These are the race wins/achievements (trophies) earned during training.
+    Uses racetitles_global.json (pre-cleaned, newlines already stripped).
     """
-    text_data = data.get("text_data", {})
-    cat_111 = text_data.get("111", {})
-    name = cat_111.get(str(saddle_id))
-    if name:
-        # Clean up newlines in names (some have line breaks)
-        return name.replace('\n', ' ').strip()
-    return None
-
-
-def correct_nickname_name(name: str) -> str:
-    """Apply Global terminology corrections to nickname/epithet names."""
-    if not name:
-        return name
-    
-    # Check for exact match first
-    if name in NICKNAME_NAME_CORRECTIONS:
-        return NICKNAME_NAME_CORRECTIONS[name]
-    
-    return name
+    racetitles = data.get("racetitles", {})
+    return racetitles.get(str(saddle_id))
 
 
 def get_nickname_name(data: dict, nickname_id: int) -> str | None:
     """Look up epithet/bonus name from nickname ID.
     
-    IDs 1-32 are support card bonuses (category 151) like "Speed Bonus", "Wit Cap Up".
-    IDs 33+ are earned epithets (category 130) like "G1 Hunter", "Legendary Diva".
-    
-    Applies Global terminology corrections.
+    Uses nicknames_global.json (pre-corrected, merges categories 130 and 151).
     """
-    text_data = data.get("text_data", {})
-    
-    # Try category 151 first (support card bonuses, IDs 1-32)
-    cat_151 = text_data.get("151", {})
-    name = cat_151.get(str(nickname_id))
-    if name:
-        return correct_nickname_name(name)
-    
-    # Try category 130 (earned titles, IDs 33+)
-    cat_130 = text_data.get("130", {})
-    name = cat_130.get(str(nickname_id))
-    if name:
-        return correct_nickname_name(name)
-    
-    return None
+    nicknames = data.get("nicknames", {})
+    return nicknames.get(str(nickname_id))
 
 
 def get_race_cloth_name(data: dict, race_cloth_id: int) -> str | None:
     """Look up racing outfit/dress name from race_cloth_id.
     
-    Uses text_data category 14 which maps race_cloth_id to outfit names.
-    These are the racing outfits like "Silent Innocence", "Peak Joy", etc.
+    Uses outfitnames_global.json.
     """
-    text_data = data.get("text_data", {})
-    cat_14 = text_data.get("14", {})
-    name = cat_14.get(str(race_cloth_id))
-    if name:
-        return name
-    return None
+    outfitnames = data.get("outfitnames", {})
+    return outfitnames.get(str(race_cloth_id))
 
 
 def get_support_card_info(data: dict, support_card_id: int) -> dict:
-    """Look up support card info from ID using text_data.
+    """Look up support card info from ID.
+    
+    Uses supportcardnames_global.json (pre-merged from categories 75/76/77).
     
     Returns dict with:
     - support_card_name_en: Full name like "[Title] Character"
@@ -632,26 +487,16 @@ def get_support_card_info(data: dict, support_card_id: int) -> dict:
     - support_card_type: Type like "Speed", "Stamina", etc.
     """
     result = {}
-    text_data = data.get("text_data", {})
+    supportcardnames = data.get("supportcardnames", {})
     sid_str = str(support_card_id)
     
-    # Category 75: Full name "[Title] Character"
-    cat_75 = text_data.get("75", {})
-    full_name = cat_75.get(sid_str)
-    if full_name:
-        result["support_card_name_en"] = full_name
-    
-    # Category 76: Title only "[Title]"
-    cat_76 = text_data.get("76", {})
-    title = cat_76.get(sid_str)
-    if title:
-        result["support_card_title_en"] = title
-    
-    # Category 77: Character name only
-    cat_77 = text_data.get("77", {})
-    chara = cat_77.get(sid_str)
-    if chara:
-        result["support_card_chara_en"] = chara
+    entry = supportcardnames.get(sid_str, {})
+    if "name" in entry:
+        result["support_card_name_en"] = entry["name"]
+    if "title" in entry:
+        result["support_card_title_en"] = entry["title"]
+    if "chara" in entry:
+        result["support_card_chara_en"] = entry["chara"]
     
     # Type from first digit of ID
     if sid_str:
@@ -788,7 +633,7 @@ def enrich_character(char: dict, data: dict) -> dict:
             enriched_nicknames.append(nick_entry)
         char["nickname_array_enriched"] = enriched_nicknames
     
-    # Enrich support cards (using text_data categories 75, 76, 77)
+    # Enrich support cards (using supportcardnames_global.json)
     support_list = char.get("support_card_list", [])
     for support in support_list:
         support_id = support.get("support_card_id")
@@ -841,11 +686,11 @@ def enrich_data(input_path: Path, output_path: Path):
     
     print(f"[OK] Loaded {len(characters)} characters\n")
     
-    # Download translation data
-    data = download_all_data()
+    # Load reference data from local data/ directory
+    data = load_all_data()
     
-    if not data.get("skills_global") and not data.get("skills_jp") and not data.get("umas_global"):
-        print("\n[!] No translation data available, output will have IDs only")
+    if not data:
+        print("\n[!] No reference data available, output will have IDs only")
     
     # Enrich each character
     print("\nEnriching character data...")
@@ -875,7 +720,7 @@ def enrich_data(input_path: Path, output_path: Path):
         sys.exit(1)
     
     # Show sample (with safe encoding for Windows console)
-    if characters and (data.get("skills_global") or data.get("skills_jp") or data.get("umas_global")):
+    if characters and data:
         sample = characters[0]
         
         def safe_print(text: str):
