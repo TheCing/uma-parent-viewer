@@ -338,8 +338,8 @@ def get_skill_type(skill_id: int | str, effects: list) -> str:
     """Determine the skill type/category for color coding.
     
     Types:
-    - unique: Character-specific unique skill (10XXXX pattern)
-    - inherited: Inherited unique from parent (90XXXX pattern)
+    - unique: Character-specific unique skill (10XXXX base outfit, 11XXXX alternate outfit)
+    - inherited: Inherited unique from parent (90XXXX base, 91XXXX alternate)
     - gold: Gold rarity skills
     - green: Stat boost skills (effect types 1-5)
     - blue: Debuff skills (negative modifiers)
@@ -356,12 +356,12 @@ def get_skill_type(skill_id: int | str, effects: list) -> str:
     if any(e.get("modifier", 0) < 0 for e in effects):
         return "blue"
     
-    # Check for unique skills (10XXXX pattern)
-    if sid.startswith("10") and len(sid) == 6:
+    # Check for unique skills (10XXXX base outfit, 11XXXX alternate outfit)
+    if len(sid) == 6 and (sid.startswith("10") or sid.startswith("11")):
         return "unique"
     
-    # Check for inherited uniques (90XXXX pattern)
-    if sid.startswith("90") and len(sid) == 6:
+    # Check for inherited uniques (90XXXX base, 91XXXX alternate)
+    if len(sid) == 6 and (sid.startswith("90") or sid.startswith("91")):
         return "inherited"
     
     # Default based on data rarity will be set later
@@ -488,26 +488,40 @@ def get_spark_name(data: dict, spark_id: int) -> str | None:
     """
     text_data = data.get("text_data", {})
     
-    # FIRST: Check if it's a unique skill spark (100XXXXX format, 8 digits starting with 10)
-    # Formula: skill_id = 110001 + int(str(spark_id)[2:5])
-    # Example: 10040201 -> 110001 + 40 = 110041 "A Kiss for Courage"
+    # FIRST: Check if it's a unique skill spark (8 digits starting with 10)
+    # Format: 10[XXX][V][ZZ] where XXX=char index, V=outfit variant (1=base, 2=alt), ZZ=star level
+    # In-game, unique sparks ALWAYS display the white (unevolved) version of the character's
+    # base unique skill, regardless of outfit variant. So we always map to 10XXXX (base unique).
+    # Example: 10040201 (Maruzensky alt, 1-star) -> 100041 "Red Shift/LP1211-M" (not "A Kiss for Courage")
     if 10000000 <= spark_id < 20000000:
         spark_str = str(spark_id)
         if len(spark_str) == 8:
             middle = int(spark_str[2:5])
-            skill_id = 110001 + middle
+            skill_id = 100001 + middle
             skill_name = get_skill_name(data, skill_id)
             if skill_name:
-                return skill_name  # Global name from skillnames.json
+                return skill_name  # Global name from skillnames.json (white/unevolved)
     
     # SECOND: For skill sparks (200XXXX format, 7 digits), try Global skillnames.json FIRST
     # This gives us authoritative Global names directly without needing corrections
     # Formula: skill_id = (spark_id // 100) * 10 + (spark_id % 10)
+    # In-game, sparks ALWAYS display the white (Normal, rarity=2) version of a skill.
+    # If the formula resolves to a gold (Rare, rarity=1) skill, find the white counterpart.
     if 2000000 <= spark_id < 3000000:
         skill_id = (spark_id // 100) * 10 + (spark_id % 10)
+        skill_data_dict = data.get("skill_data", {})
+        skill_entry = skill_data_dict.get(str(skill_id), {})
+        if skill_entry.get("rarity") == 1:
+            group_base = (skill_id // 10) * 10
+            for digit in range(1, 5):
+                candidate = group_base + digit
+                candidate_entry = skill_data_dict.get(str(candidate), {})
+                if candidate_entry.get("rarity") == 2:
+                    skill_id = candidate
+                    break
         skill_name = get_skill_name(data, skill_id)
         if skill_name:
-            return skill_name  # Global name from skillnames.json - no corrections needed
+            return skill_name  # Global name from skillnames.json - white version
     
     # THIRD: Check text_data category 147 for non-skill sparks (stats, aptitudes, etc.)
     # or as fallback for skill sparks not found in Global skillnames.json
